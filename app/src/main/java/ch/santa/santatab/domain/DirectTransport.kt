@@ -7,6 +7,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -79,7 +80,7 @@ class DirectTransport(
     }
 
     private suspend fun runHost(host: String) {
-        while (coroutineContext.isActive) {
+        while (currentCoroutineContext().isActive) {
             val finished = CompletableDeferred<Unit>()
             try {
                 val source = openEvents(host, finished)
