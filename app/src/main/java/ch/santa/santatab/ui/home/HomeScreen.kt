@@ -46,6 +46,7 @@ fun HomeScreen(
 ) {
     val diffusers by viewModel.diffusers.collectAsStateWithLifecycle()
     val connection by viewModel.connectionState.collectAsStateWithLifecycle()
+    val mode by viewModel.mode.collectAsStateWithLifecycle()
 
     Scaffold(
         topBar = {
@@ -72,6 +73,7 @@ fun HomeScreen(
                 EmptyState(
                     status = connection.status,
                     detail = connection.detail,
+                    mode = mode,
                     onOpenSettings = onOpenSettings,
                     onOpenGuide = onOpenGuide,
                 )
@@ -104,11 +106,12 @@ fun HomeScreen(
 private fun EmptyState(
     status: ConnectionStatus,
     detail: String?,
+    mode: ch.santa.santatab.data.model.AppMode,
     onOpenSettings: () -> Unit,
     onOpenGuide: () -> Unit,
 ) {
-    val notConfigured = detail == "Kein Broker konfiguriert" ||
-        status == ConnectionStatus.DISCONNECTED
+    val direct = mode == ch.santa.santatab.data.model.AppMode.DIRECT
+    val notConfigured = status == ConnectionStatus.DISCONNECTED
 
     Column(
         modifier = Modifier.fillMaxSize().padding(32.dp),
@@ -125,14 +128,16 @@ private fun EmptyState(
 
         val (title, message) = when {
             notConfigured -> "Willkommen bei SantaTAB" to
-                "Damit die Diffuser gefunden werden, hinterlege zuerst die Adresse deines MQTT-Brokers."
+                if (direct) "Trage die Adressen deiner Diffuser ein, damit SantaTAB sie direkt steuern kann."
+                else "Damit die Diffuser gefunden werden, hinterlege zuerst die Adresse deines MQTT-Brokers."
             status == ConnectionStatus.ERROR -> "Verbindung fehlgeschlagen" to
-                (detail ?: "Der Broker ist nicht erreichbar. Bitte Adresse und Netzwerk prüfen.")
-            status == ConnectionStatus.CONNECTING -> "Verbinde mit dem Broker …" to
-                "Einen Moment bitte."
+                (detail ?: "Nicht erreichbar. Bitte Adresse und Netzwerk prüfen.")
+            status == ConnectionStatus.CONNECTING -> "Verbinde …" to "Einen Moment bitte."
             else -> "Suche Diffuser …" to
-                "Verbunden. Stelle sicher, dass die ESPHome-Geräte laufen und per MQTT-Discovery angemeldet sind."
+                if (direct) "Verbunden. Prüfe, ob die Geräte-Adressen stimmen und die Diffuser laufen."
+                else "Verbunden. Stelle sicher, dass die ESPHome-Geräte laufen und per MQTT-Discovery angemeldet sind."
         }
+        val buttonLabel = if (direct) "Geräte einrichten" else "Broker einrichten"
 
         Text(
             text = title,
@@ -150,7 +155,7 @@ private fun EmptyState(
         if (notConfigured || status == ConnectionStatus.ERROR) {
             Spacer(Modifier.height(24.dp))
             Button(onClick = onOpenSettings) {
-                Text("Broker einrichten")
+                Text(buttonLabel)
             }
         }
         Spacer(Modifier.height(4.dp))

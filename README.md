@@ -13,9 +13,13 @@ und lokal über einen **MQTT-Broker** gesteuert. SantaTAB ist die Bedien-App daz
 - **Intensität** 1–10 (Lüfterdrehzahl) per Schieberegler
 - **Statusrückmeldung** (läuft / aus / offline, aktuelle Stufe)
 - **Szenen** aus dem Betriebskonzept: Grundbetrieb, Ankunft, Gäste, Nacht
-- **Automatische Geräteerkennung** über MQTT-Discovery – keine manuelle Geräte-Konfiguration nötig
+- **Zwei Betriebsarten**, umschaltbar in den Einstellungen:
+  - **MQTT-Broker** – automatische Geräteerkennung via Discovery, parallel zu Homey
+  - **Direkt (ohne Broker)** – App spricht jeden Diffuser direkt über seinen Web-Server an (REST/SSE); Geräte-Adressen werden manuell eingetragen
+- **In-App-Anleitung** (Hilfe-Icon) mit Schritt-für-Schritt-Einrichtung
 
-Läuft parallel zu Homey (beide sprechen denselben Broker).
+Im Direkt-Modus laufen wiederkehrende **Zeitpläne autonom auf dem Gerät** (ESPHome),
+auch ohne Handy. Details: siehe [`docs/TECHNISCHE_DOKUMENTATION.md`](docs/TECHNISCHE_DOKUMENTATION.md).
 
 ## Architektur
 

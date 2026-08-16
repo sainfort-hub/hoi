@@ -4,6 +4,11 @@
 # 5-V-Lüfter (SUNON UB5U3-500) über eine MOSFET-Treiberstufe per PWM regelt.
 # Die "Intensität" ist die Lüfterdrehzahl (Stufen 1..10 wie im Original).
 #
+# Unterstützt BEIDE App-Betriebsarten gleichzeitig:
+#   - MQTT-Broker (mit Homey-Parallelbetrieb)
+#   - Direkt (App spricht den Web-Server unten direkt an, ohne Broker)
+# Zusätzlich läuft eine autonome Zeittaktung direkt auf dem Gerät.
+#
 # Erwartete Substitutionen aus der jeweiligen Gerätedatei:
 #   device_name   – technischer Name / Hostname (z. B. duft-wohnzimmer)
 #   room          – Anzeigename des Raums    (z. B. "Duft Wohnzimmer")
@@ -36,8 +41,9 @@ wifi:
     ssid: "${device_name}-setup"
     password: !secret ap_password
 
-# Lokale Anbindung: MQTT mit automatischer Discovery.
-# SantaTAB und Homey finden das Gerät darüber ohne weitere Konfiguration.
+# Betriebsart 1: MQTT mit automatischer Discovery (für App + Homey).
+# reboot_timeout 0s => das Gerät startet NICHT neu, wenn kein Broker da ist
+# (wichtig für den reinen Direkt-Betrieb ohne Broker).
 mqtt:
   broker: !secret mqtt_broker
   port: 1883
@@ -45,6 +51,37 @@ mqtt:
   password: !secret mqtt_password
   discovery: true
   discovery_prefix: homeassistant
+  reboot_timeout: 0s
+
+# Betriebsart 2: Web-Server mit REST-API + Live-Stream (SSE) für den Direkt-Modus.
+# local: true bettet die Oberfläche ein, damit kein Internet nötig ist.
+web_server:
+  port: 80
+  version: 2
+  local: true
+
+# Zeitquelle für die autonome Taktung.
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      # Zu jeder vollen Stunde: kurzer Duftstoss, sofern Automatik aktiv
+      # und nicht Nachtruhe (22:00–06:00).
+      - cron: "0 0 * * * *"
+        then:
+          - if:
+              condition:
+                and:
+                  - switch.is_on: automatik
+                  - lambda: |-
+                      auto t = id(sntp_time).now();
+                      return t.is_valid() && id(num_pulse).state > 0 && t.hour >= 6 && t.hour < 22;
+              then:
+                - fan.turn_on:
+                    id: diffusor
+                    speed: !lambda "return (int) id(num_base_level).state;"
+                - delay: !lambda "return (uint32_t) (id(num_pulse).state * 1000);"
+                - fan.turn_off: diffusor
 
 # WICHTIG: Es darf nur EIN output-Block existieren – Lüfter-PWM und LED darin.
 output:
@@ -65,6 +102,35 @@ fan:
     output: fan_pwm
     name: "${room}"
     speed_count: 10
+
+# Autonome Taktung ein/aus – von App (REST) oder Homey steuerbar, bleibt gespeichert.
+switch:
+  - platform: template
+    name: "${room} Automatik"
+    id: automatik
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+# Einstellbare, persistente Parameter der Taktung.
+number:
+  - platform: template
+    name: "${room} Grundstufe"
+    id: num_base_level
+    optimistic: true
+    restore_value: true
+    initial_value: 4
+    min_value: 1
+    max_value: 10
+    step: 1
+  - platform: template
+    name: "${room} Sekunden pro Stunde"
+    id: num_pulse
+    optimistic: true
+    restore_value: true
+    initial_value: 180
+    min_value: 0
+    max_value: 3600
+    step: 10
 
 # Optionaler Taster am Gerät.
 binary_sensor:

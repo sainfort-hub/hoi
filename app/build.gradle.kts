@@ -66,6 +66,8 @@ dependencies {
     implementation(libs.androidx.datastore.preferences)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.paho.mqtt.client)
+    implementation(libs.okhttp)
+    implementation(libs.okhttp.sse)
 
     debugImplementation(libs.androidx.ui.tooling)
 }
