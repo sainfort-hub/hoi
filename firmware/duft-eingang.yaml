@@ -1,0 +1,6 @@
+substitutions:
+  device_name: duft-eingang
+  room: "Duft Eingang"
+
+packages:
+  base: !include common/hide-diffuser.yaml

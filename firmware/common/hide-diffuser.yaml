@@ -1,0 +1,86 @@
+# Gemeinsames ESPHome-Paket für alle HIDE-Diffuser (Weg B / Hardware-Ersatz).
+#
+# Ersetzt die originale Logikplatine durch einen ESP32-C3 Super Mini, der den
+# 5-V-Lüfter (SUNON UB5U3-500) über eine MOSFET-Treiberstufe per PWM regelt.
+# Die "Intensität" ist die Lüfterdrehzahl (Stufen 1..10 wie im Original).
+#
+# Erwartete Substitutionen aus der jeweiligen Gerätedatei:
+#   device_name   – technischer Name / Hostname (z. B. duft-wohnzimmer)
+#   room          – Anzeigename des Raums    (z. B. "Duft Wohnzimmer")
+#
+# Verdrahtung (siehe Konzept, Abschnitt 4.3):
+#   GPIO4 -> 100R -> MOSFET-Gate (10k Pulldown gegen GND)   – PWM Lüfter
+#   GPIO5 -> Taster gegen GND (interner Pullup)             – optional
+#   GPIO6 -> 330R -> Status-LED                             – optional
+
+esphome:
+  name: ${device_name}
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+logger:
+
+# Drahtlose Updates nach dem ersten USB-Flash.
+ota:
+  - platform: esphome
+    password: !secret ota_password
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  # Fallback-Accesspoint, falls das WLAN nicht erreichbar ist.
+  ap:
+    ssid: "${device_name}-setup"
+    password: !secret ap_password
+
+# Lokale Anbindung: MQTT mit automatischer Discovery.
+# SantaTAB und Homey finden das Gerät darüber ohne weitere Konfiguration.
+mqtt:
+  broker: !secret mqtt_broker
+  port: 1883
+  username: !secret mqtt_user
+  password: !secret mqtt_password
+  discovery: true
+  discovery_prefix: homeassistant
+
+# WICHTIG: Es darf nur EIN output-Block existieren – Lüfter-PWM und LED darin.
+output:
+  - platform: ledc
+    id: fan_pwm
+    pin: GPIO4
+    frequency: 25000Hz        # oberhalb der Hörschwelle
+    min_power: 0.25           # unter ~25 % läuft der Lüfter nicht an – am Gerät nachjustieren
+    zero_means_zero: true
+  - platform: gpio
+    id: led_out
+    pin: GPIO6
+
+# Der Diffusor als regelbarer Lüfter (Ein/Aus + 10 Stufen).
+fan:
+  - platform: speed
+    id: diffusor
+    output: fan_pwm
+    name: "${room}"
+    speed_count: 10
+
+# Optionaler Taster am Gerät.
+binary_sensor:
+  - platform: gpio
+    pin:
+      number: GPIO5
+      inverted: true
+      mode:
+        input: true
+        pullup: true
+    name: "${room} Taster"
+    on_press:
+      - fan.toggle: diffusor
+
+# Optionale Status-LED.
+light:
+  - platform: binary
+    name: "${room} Status-LED"
+    output: led_out

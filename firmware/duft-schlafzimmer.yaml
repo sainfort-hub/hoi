@@ -1,0 +1,6 @@
+substitutions:
+  device_name: duft-schlafzimmer
+  room: "Duft Schlafzimmer"
+
+packages:
+  base: !include common/hide-diffuser.yaml
