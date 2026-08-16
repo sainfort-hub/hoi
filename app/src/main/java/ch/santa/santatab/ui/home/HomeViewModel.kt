@@ -12,6 +12,7 @@ class HomeViewModel(private val repository: DiffuserRepository) : ViewModel() {
 
     val diffusers = repository.diffusers
     val connectionState = repository.connectionState
+    val mode = repository.mode
     val scenes: List<Scene> = repository.scenes
 
     fun setPower(id: String, on: Boolean) = repository.setPower(id, on)

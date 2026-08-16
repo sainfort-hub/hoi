@@ -92,6 +92,25 @@ fun GuideScreen(onBack: () -> Unit) {
                 last = true,
             )
 
+            SectionTitle("Zwei Betriebsarten")
+
+            FieldCard(
+                "MQTT-Broker",
+                "Steuerung über einen zentralen Broker (Mosquitto). Läuft parallel zu Homey, " +
+                    "Geräte werden automatisch erkannt. Broker im Netz nötig.",
+            )
+            FieldCard(
+                "Direkt (ohne Broker)",
+                "Die App spricht jeden Diffuser direkt über seinen Web-Server an – kein Broker nötig. " +
+                    "Dafür trägst du die Geräte-Adressen (feste IP empfohlen) von Hand ein.",
+            )
+            InfoCard(
+                title = "Zeitpläne im Direkt-Modus",
+                text = "Wiederkehrende Taktung (z. B. 3 Min pro Stunde) läuft autonom auf dem Gerät " +
+                    "selbst – auch wenn das Handy aus ist. Über die App/den Web-Server lässt sich der " +
+                    "Automatik-Betrieb ein- und ausschalten.",
+            )
+
             SectionTitle("Die Felder erklärt")
 
             FieldCard("Broker-Host / IP", "Adresse des MQTT-Brokers im Netz, z. B. 10.1.1.50 oder mosquitto.local.")
