@@ -41,9 +41,10 @@ Die **autonome Zeittaktung** läuft unabhängig von beiden auf dem Gerät selbst
 
 ## 2. Gerät nach Umbau (ESPHome)
 
-- **Controller:** ESP32-C3 Super Mini (ersetzt die Originalplatine)
-- **Aktor:** SUNON UB5U3-500 Lüfter, 5 V / 72 mA, über N-MOSFET an **GPIO4** (PWM, 25 kHz)
-- **Optional:** Taster an **GPIO5** (Pullup), Status-LED an **GPIO6** (330 Ω)
+- **Controller:** Seeed Studio XIAO ESP32-C3 (ersetzt die Originalplatine; `board: seeed_xiao_esp32c3`)
+- **Aktor:** SUNON UB5U3-500 Lüfter, 5 V / 72 mA, über D4184-MOSFET-Modul an **GPIO4** (PWM, 20 kHz)
+- **Optional:** Taster SW1 an **GPIO5** (Pullup), LED DL2 an **GPIO6** (330 Ω)
+- **Netzteil:** nicht galvanisch getrennt – Flashen nur stromlos per USB, sonst OTA (siehe `HARDWARE_STATUS.md`)
 - **Firmware-Quelle:** `firmware/common/hide-diffuser.yaml` (+ Gerätedateien)
 
 ### Exponierte Entitäten

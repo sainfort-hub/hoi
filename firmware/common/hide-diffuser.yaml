@@ -1,7 +1,7 @@
 # Gemeinsames ESPHome-Paket für alle HIDE-Diffuser (Weg B / Hardware-Ersatz).
 #
-# Ersetzt die originale Logikplatine durch einen ESP32-C3 Super Mini, der den
-# 5-V-Lüfter (SUNON UB5U3-500) über eine MOSFET-Treiberstufe per PWM regelt.
+# Ersetzt die originale Logikplatine durch einen Seeed Studio XIAO ESP32-C3, der den
+# 5-V-Lüfter (SUNON UB5U3-500, 72 mA) über ein D4184-MOSFET-Modul per PWM regelt.
 # Die "Intensität" ist die Lüfterdrehzahl (Stufen 1..10 wie im Original).
 #
 # Unterstützt BEIDE App-Betriebsarten gleichzeitig:
@@ -13,16 +13,22 @@
 #   device_name   – technischer Name / Hostname (z. B. duft-wohnzimmer)
 #   room          – Anzeigename des Raums    (z. B. "Duft Wohnzimmer")
 #
-# Verdrahtung (siehe Konzept, Abschnitt 4.3):
-#   GPIO4 -> 100R -> MOSFET-Gate (10k Pulldown gegen GND)   – PWM Lüfter
-#   GPIO5 -> Taster gegen GND (interner Pullup)             – optional
-#   GPIO6 -> 330R -> Status-LED                             – optional
+# Verdrahtung mit MOSFET-Modul (siehe docs/HARDWARE_STATUS.md, Abschnitt 4):
+#   Netzteil 5V  -> XIAO 5V-Pin (+ 470 µF gegen GND) und Modul VIN+
+#   Lüfter rot   -> Modul VIN+        Lüfter schwarz -> Modul OUT−   (gelb offen)
+#   GPIO4 (D2)   -> Modul SIG         (PWM 20 kHz – Spec-Grenze des D4184-Moduls)
+#   GND          -> Modul GND = Netzteil-GND (gemeinsam)
+#   1N5819: Kathode an +5V, Anode an OUT− (Freilauf)
+#   optional: GPIO5 (D3) -> Taster SW1 gegen GND · GPIO6 (D4) -[330R]-> LED DL2
+#
+# SICHERHEIT: Das Netzteil ist NICHT galvanisch getrennt (bestätigt). Flashen nur
+# stromlos per USB, im Betrieb ausschliesslich OTA. Nie 230 V und USB gleichzeitig.
 
 esphome:
   name: ${device_name}
 
 esp32:
-  board: esp32-c3-devkitm-1
+  board: seeed_xiao_esp32c3
   framework:
     type: esp-idf
 
@@ -88,7 +94,7 @@ output:
   - platform: ledc
     id: fan_pwm
     pin: GPIO4
-    frequency: 25000Hz        # oberhalb der Hörschwelle
+    frequency: 20000Hz        # Spec-Grenze des D4184-Moduls, oberhalb der Hörschwelle
     min_power: 0.25           # unter ~25 % läuft der Lüfter nicht an – am Gerät nachjustieren
     zero_means_zero: true
   - platform: gpio
