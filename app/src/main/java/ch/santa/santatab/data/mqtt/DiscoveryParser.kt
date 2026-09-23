@@ -1,32 +1,23 @@
 package ch.santa.santatab.data.mqtt
 
-import ch.santa.santatab.data.model.Diffuser
 import org.json.JSONObject
 
 /**
  * Wandelt eine MQTT-Discovery-Konfiguration (Home-Assistant-Format, wie ESPHome
- * sie veröffentlicht) in ein [Diffuser]-Objekt um.
+ * sie veröffentlicht) in ein [MqttFan] um.
  *
  * Unterstützt sowohl die ausgeschriebenen Schlüssel (`command_topic`) als auch
- * die abgekürzten (`cmd_t`) sowie die `~`-Basistopic-Ersetzung. Dadurch bleibt
- * die App robust gegenüber ESPHome-Versionsunterschieden.
+ * die abgekürzten (`cmd_t`) sowie die `~`-Basistopic-Ersetzung.
  */
 object DiscoveryParser {
 
-    /** Prüft, ob ein Topic eine Fan-Discovery-Konfiguration ist. */
     fun isFanConfigTopic(topic: String): Boolean =
         topic.contains("/fan/") && topic.endsWith("/config")
 
-    /**
-     * Liefert die stabile Geräte-ID zu einem Discovery-Topic, damit ein
-     * leerer Payload (Löschung der Discovery) dem richtigen Gerät zugeordnet
-     * werden kann.
-     */
     fun objectIdFromTopic(topic: String): String =
         topic.removeSuffix("/config").substringAfter("/fan/").replace('/', '_')
 
-    /** Parst den Discovery-Payload. Gibt null zurück, wenn Pflichtfelder fehlen. */
-    fun parse(topic: String, payload: String): Diffuser? {
+    fun parse(topic: String, payload: String): MqttFan? {
         val json = runCatching { JSONObject(payload) }.getOrNull() ?: return null
         val base = json.optString("~", "")
 
@@ -53,7 +44,7 @@ object DiscoveryParser {
         val id = firstString(json, "unique_id", "uniq_id") ?: objectIdFromTopic(topic)
         val name = firstString(json, "name") ?: id
 
-        return Diffuser(
+        return MqttFan(
             id = id,
             name = name,
             commandTopic = commandTopic,

@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import ch.santa.santatab.ui.guide.GuideScreen
 import ch.santa.santatab.ui.home.HomeScreen
 import ch.santa.santatab.ui.settings.SettingsScreen
 import ch.santa.santatab.ui.theme.SantaTabTheme
@@ -18,6 +19,7 @@ import ch.santa.santatab.ui.theme.SantaTabTheme
 private object Routes {
     const val HOME = "home"
     const val SETTINGS = "settings"
+    const val GUIDE = "guide"
 }
 
 class MainActivity : ComponentActivity() {
@@ -33,10 +35,19 @@ class MainActivity : ComponentActivity() {
                     val navController = rememberNavController()
                     NavHost(navController = navController, startDestination = Routes.HOME) {
                         composable(Routes.HOME) {
-                            HomeScreen(onOpenSettings = { navController.navigate(Routes.SETTINGS) })
+                            HomeScreen(
+                                onOpenSettings = { navController.navigate(Routes.SETTINGS) },
+                                onOpenGuide = { navController.navigate(Routes.GUIDE) },
+                            )
                         }
                         composable(Routes.SETTINGS) {
-                            SettingsScreen(onBack = { navController.popBackStack() })
+                            SettingsScreen(
+                                onBack = { navController.popBackStack() },
+                                onOpenGuide = { navController.navigate(Routes.GUIDE) },
+                            )
+                        }
+                        composable(Routes.GUIDE) {
+                            GuideScreen(onBack = { navController.popBackStack() })
                         }
                     }
                 }

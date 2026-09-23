@@ -1,23 +1,34 @@
 # Gemeinsames ESPHome-Paket für alle HIDE-Diffuser (Weg B / Hardware-Ersatz).
 #
-# Ersetzt die originale Logikplatine durch einen ESP32-C3 Super Mini, der den
-# 5-V-Lüfter (SUNON UB5U3-500) über eine MOSFET-Treiberstufe per PWM regelt.
+# Ersetzt die originale Logikplatine durch einen Seeed Studio XIAO ESP32-C3, der den
+# 5-V-Lüfter (SUNON UB5U3-500, 72 mA) über ein D4184-MOSFET-Modul per PWM regelt.
 # Die "Intensität" ist die Lüfterdrehzahl (Stufen 1..10 wie im Original).
+#
+# Unterstützt BEIDE App-Betriebsarten gleichzeitig:
+#   - MQTT-Broker (mit Homey-Parallelbetrieb)
+#   - Direkt (App spricht den Web-Server unten direkt an, ohne Broker)
+# Zusätzlich läuft eine autonome Zeittaktung direkt auf dem Gerät.
 #
 # Erwartete Substitutionen aus der jeweiligen Gerätedatei:
 #   device_name   – technischer Name / Hostname (z. B. duft-wohnzimmer)
 #   room          – Anzeigename des Raums    (z. B. "Duft Wohnzimmer")
 #
-# Verdrahtung (siehe Konzept, Abschnitt 4.3):
-#   GPIO4 -> 100R -> MOSFET-Gate (10k Pulldown gegen GND)   – PWM Lüfter
-#   GPIO5 -> Taster gegen GND (interner Pullup)             – optional
-#   GPIO6 -> 330R -> Status-LED                             – optional
+# Verdrahtung mit MOSFET-Modul (siehe docs/HARDWARE_STATUS.md, Abschnitt 4):
+#   Netzteil 5V  -> XIAO 5V-Pin (+ 470 µF gegen GND) und Modul VIN+
+#   Lüfter rot   -> Modul VIN+        Lüfter schwarz -> Modul OUT−   (gelb offen)
+#   GPIO4 (D2)   -> Modul SIG         (PWM 20 kHz – Spec-Grenze des D4184-Moduls)
+#   GND          -> Modul GND = Netzteil-GND (gemeinsam)
+#   1N5819: Kathode an +5V, Anode an OUT− (Freilauf)
+#   optional: GPIO5 (D3) -> Taster SW1 gegen GND · GPIO6 (D4) -[330R]-> LED DL2
+#
+# SICHERHEIT: Das Netzteil ist NICHT galvanisch getrennt (bestätigt). Flashen nur
+# stromlos per USB, im Betrieb ausschliesslich OTA. Nie 230 V und USB gleichzeitig.
 
 esphome:
   name: ${device_name}
 
 esp32:
-  board: esp32-c3-devkitm-1
+  board: seeed_xiao_esp32c3
   framework:
     type: esp-idf
 
@@ -36,8 +47,9 @@ wifi:
     ssid: "${device_name}-setup"
     password: !secret ap_password
 
-# Lokale Anbindung: MQTT mit automatischer Discovery.
-# SantaTAB und Homey finden das Gerät darüber ohne weitere Konfiguration.
+# Betriebsart 1: MQTT mit automatischer Discovery (für App + Homey).
+# reboot_timeout 0s => das Gerät startet NICHT neu, wenn kein Broker da ist
+# (wichtig für den reinen Direkt-Betrieb ohne Broker).
 mqtt:
   broker: !secret mqtt_broker
   port: 1883
@@ -45,13 +57,44 @@ mqtt:
   password: !secret mqtt_password
   discovery: true
   discovery_prefix: homeassistant
+  reboot_timeout: 0s
+
+# Betriebsart 2: Web-Server mit REST-API + Live-Stream (SSE) für den Direkt-Modus.
+# local: true bettet die Oberfläche ein, damit kein Internet nötig ist.
+web_server:
+  port: 80
+  version: 2
+  local: true
+
+# Zeitquelle für die autonome Taktung.
+time:
+  - platform: sntp
+    id: sntp_time
+    on_time:
+      # Zu jeder vollen Stunde: kurzer Duftstoss, sofern Automatik aktiv
+      # und nicht Nachtruhe (22:00–06:00).
+      - cron: "0 0 * * * *"
+        then:
+          - if:
+              condition:
+                and:
+                  - switch.is_on: automatik
+                  - lambda: |-
+                      auto t = id(sntp_time).now();
+                      return t.is_valid() && id(num_pulse).state > 0 && t.hour >= 6 && t.hour < 22;
+              then:
+                - fan.turn_on:
+                    id: diffusor
+                    speed: !lambda "return (int) id(num_base_level).state;"
+                - delay: !lambda "return (uint32_t) (id(num_pulse).state * 1000);"
+                - fan.turn_off: diffusor
 
 # WICHTIG: Es darf nur EIN output-Block existieren – Lüfter-PWM und LED darin.
 output:
   - platform: ledc
     id: fan_pwm
     pin: GPIO4
-    frequency: 25000Hz        # oberhalb der Hörschwelle
+    frequency: 20000Hz        # Spec-Grenze des D4184-Moduls, oberhalb der Hörschwelle
     min_power: 0.25           # unter ~25 % läuft der Lüfter nicht an – am Gerät nachjustieren
     zero_means_zero: true
   - platform: gpio
@@ -65,6 +108,35 @@ fan:
     output: fan_pwm
     name: "${room}"
     speed_count: 10
+
+# Autonome Taktung ein/aus – von App (REST) oder Homey steuerbar, bleibt gespeichert.
+switch:
+  - platform: template
+    name: "${room} Automatik"
+    id: automatik
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+# Einstellbare, persistente Parameter der Taktung.
+number:
+  - platform: template
+    name: "${room} Grundstufe"
+    id: num_base_level
+    optimistic: true
+    restore_value: true
+    initial_value: 4
+    min_value: 1
+    max_value: 10
+    step: 1
+  - platform: template
+    name: "${room} Sekunden pro Stunde"
+    id: num_pulse
+    optimistic: true
+    restore_value: true
+    initial_value: 180
+    min_value: 0
+    max_value: 3600
+    step: 10
 
 # Optionaler Taster am Gerät.
 binary_sensor:
